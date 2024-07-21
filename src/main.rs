@@ -4,12 +4,13 @@
 // Feel free to delete this line.
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
-use bevy::asset::AssetMetaCheck;
 use bevy::prelude::*;
+use bevy::{asset::AssetMetaCheck, color::palettes::css::PURPLE};
 use bevy_dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 
 fn main() {
     App::new()
+        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 0.9))) // starting background color
         .add_plugins(DefaultPlugins.set(AssetPlugin {
             // Wasm builds will check for meta files (that don't exist) if this isn't set.
             // This causes errors and even panics in web builds on itch.
@@ -32,6 +33,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, sprite_movement)
         .add_systems(Update, customize_config)
+        .add_systems(Update, change_clear_color)
         .run();
 }
 
@@ -76,5 +78,11 @@ fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOve
     }
     if input.just_pressed(KeyCode::Digit2) {
         overlay.text_config.font_size -= 2.0;
+    }
+}
+
+fn change_clear_color(input: Res<ButtonInput<KeyCode>>, mut clear_color: ResMut<ClearColor>) {
+    if input.just_pressed(KeyCode::Space) {
+        clear_color.0 = PURPLE.into();
     }
 }
