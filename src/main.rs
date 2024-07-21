@@ -31,6 +31,7 @@ fn main() {
         })
         .add_systems(Startup, setup)
         .add_systems(Update, sprite_movement)
+        .add_systems(Update, customize_config)
         .run();
 }
 
@@ -65,5 +66,15 @@ fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, 
         } else if transform.translation.y < -200. {
             *logo = Direction::Up;
         }
+    }
+}
+
+fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
+    if input.just_pressed(KeyCode::Digit1) {
+        // Changing resource will affect overlay
+        overlay.text_config.color = Color::srgb(1.0, 0.0, 0.0);
+    }
+    if input.just_pressed(KeyCode::Digit2) {
+        overlay.text_config.font_size -= 2.0;
     }
 }
