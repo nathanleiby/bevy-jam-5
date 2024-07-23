@@ -7,7 +7,7 @@
 mod bodies;
 
 use bevy::prelude::*;
-use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle, Wireframe2dConfig, Wireframe2dPlugin};
+use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
 use bevy::{asset::AssetMetaCheck, color::palettes::css::PURPLE};
 use bevy_dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 use bodies::bodies_plugin;

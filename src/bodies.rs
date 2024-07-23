@@ -3,9 +3,7 @@
 use std::f64::consts::PI;
 
 use bevy::prelude::*;
-use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle, Wireframe2dConfig, Wireframe2dPlugin};
-use bevy::{asset::AssetMetaCheck, color::palettes::css::PURPLE};
-use bevy_dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
+use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
 pub fn bodies_plugin(app: &mut App) {
     app.insert_resource(Timestep(0));
