@@ -1,15 +1,26 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
+use std::f64::consts::PI;
+
 use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle, Wireframe2dConfig, Wireframe2dPlugin};
 use bevy::{asset::AssetMetaCheck, color::palettes::css::PURPLE};
 use bevy_dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 
-const X_EXTENT: f32 = 900.;
-
 pub fn bodies_plugin(app: &mut App) {
+    app.insert_resource(Timestep(0));
     app.add_systems(Startup, setup_shapes);
+    app.add_systems(Update, move_shapes);
+    app.add_systems(Update, change_timestep);
 }
+
+// TODO: why isn't deref mut working to avoid need for .0 ?
+#[derive(Resource, Deref, DerefMut)]
+struct Timestep(usize);
+
+const TIMESTEP_PER_CANONICAL_CYCLE: usize = 16;
+const MIN_TIMESTEP: usize = 0;
+const MAX_TIMESTEP: usize = 200; // Not sure about this, but some kinda bounds to avoid too many cycles for player to consider? Think opus magnum
 
 fn setup_shapes(
     mut commands: Commands,
@@ -25,12 +36,23 @@ fn setup_shapes(
     //     &mut materials,
     //     Satellite { radius: 250. },
     // );
+    let d1 = 100.;
+    let d2 = 200.;
 
-    for distance_from_central_body in [200., 500.] {
+    for distance_from_central_body in [d1, d2] {
         // spawn sat
         let satellite = Satellite::new(distance_from_central_body);
-        let shape = Mesh2dHandle(meshes.add(Circle { radius: 50. }));
-        let hue = 180.; // 0 - 360
+        let shape = Mesh2dHandle(meshes.add(Circle { radius: 5. }));
+
+        // let hue = 180.; // 0 - 360
+        let hue = if distance_from_central_body == d1 {
+            100.
+        } else if distance_from_central_body == d2 {
+            200.
+        } else {
+            0.
+        };
+
         let color = Color::hsl(hue, 0.95, 0.7);
         commands.spawn((
             MaterialMesh2dBundle {
@@ -47,45 +69,6 @@ fn setup_shapes(
         ));
     }
 
-    // // commands.spawn(Camera2dBundle::default());
-
-    // let shapes = [
-    //     Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
-    //     Mesh2dHandle(meshes.add(Circle { radius: 25.0 })),
-    //     Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
-    //     // Mesh2dHandle(meshes.add(CircularSector::new(50.0, 1.0))),
-    //     // Mesh2dHandle(meshes.add(CircularSegment::new(50.0, 1.25))),
-    //     Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
-    //     Mesh2dHandle(meshes.add(Annulus::new(25.0, 50.0))),
-    //     Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
-    //     Mesh2dHandle(meshes.add(Rhombus::new(75.0, 100.0))),
-    //     Mesh2dHandle(meshes.add(Rectangle::new(50.0, 100.0))),
-    //     Mesh2dHandle(meshes.add(RegularPolygon::new(50.0, 6))),
-    //     Mesh2dHandle(meshes.add(Triangle2d::new(
-    //         Vec2::Y * 50.0,
-    //         Vec2::new(-50.0, -50.0),
-    //         Vec2::new(50.0, -50.0),
-    //     ))),
-    // ];
-    // let num_shapes = shapes.len();
-
-    // for (i, shape) in shapes.into_iter().enumerate() {
-    //     // Distribute colors evenly across the rainbow.
-    //     let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
-
-    //     commands.spawn(MaterialMesh2dBundle {
-    //         mesh: shape,
-    //         material: materials.add(color),
-    //         transform: Transform::from_xyz(
-    //             // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
-    //             -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
-    //             0.0,
-    //             0.0,
-    //         ),
-    //         ..default()
-    //     });
-    // }
-
     commands.spawn(
         TextBundle::from_section("Press `s` to toggle wireframes", TextStyle::default())
             .with_style(Style {
@@ -97,23 +80,24 @@ fn setup_shapes(
     );
 }
 
-// fn move_shapes() {}
+fn move_shapes(
+    // time: Res<Time>,
+    mut query: Query<(&mut Satellite, &mut Transform)>,
+    timestep: Res<Timestep>,
+) {
+    // Cycle duration
 
-// /// the last frame.
-// fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
-//     for (mut logo, mut transform) in &mut sprite_position {
-//         match *logo {
-//             Direction::Up => transform.translation.y += 150. * time.delta_seconds(),
-//             Direction::Down => transform.translation.y -= 150. * time.delta_seconds(),
-//         }
+    for (satellite, mut transform) in &mut query {
+        // TODO: compute for various orbital radii, based on time elapsed
+        let cycle_position = (timestep.0 % TIMESTEP_PER_CANONICAL_CYCLE) as f64
+            / TIMESTEP_PER_CANONICAL_CYCLE as f64;
 
-//         if transform.translation.y > 200. {
-//             *logo = Direction::Down;
-//         } else if transform.translation.y < -200. {
-//             *logo = Direction::Up;
-//         }
-//     }
-// }
+        let angle_radians: f64 = 2. * PI * cycle_position;
+        let x = satellite.distance_from_central_body * angle_radians.cos();
+        let y = satellite.distance_from_central_body * angle_radians.sin();
+        transform.translation = Vec3::new(x as f32, y as f32, 0.);
+    }
+}
 
 #[derive(Component)]
 struct Satellite {
@@ -151,3 +135,19 @@ impl Satellite {
 //         satellite,
 //     ));
 // }
+
+fn change_timestep(input: Res<ButtonInput<KeyCode>>, mut timestep: ResMut<Timestep>) {
+    if input.just_pressed(KeyCode::ArrowRight) {
+        if timestep.0 < MAX_TIMESTEP {
+            timestep.0 += 1;
+        }
+    }
+
+    if input.just_pressed(KeyCode::ArrowLeft) {
+        if timestep.0 > MIN_TIMESTEP {
+            timestep.0 -= 1;
+        }
+    }
+
+    println!("Timestep = {}", timestep.0);
+}

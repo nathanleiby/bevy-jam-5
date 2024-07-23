@@ -41,7 +41,7 @@ fn main() {
         // .add_systems(Update, sprite_movement)
         // .add_systems(Update, customize_config)
         .add_systems(Update, change_clear_color)
-        // .add_systems(Update, toggle_wireframe)
+        .add_systems(Update, toggle_wireframe)
         .add_systems(Update, quit_game)
         .run();
 }
