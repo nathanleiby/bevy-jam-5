@@ -85,10 +85,27 @@ fn move_shapes(
 ) {
     // Cycle duration
 
+    let pi_2 = PI.powi(2);
+    let m_central = 5.98 * (10 as f64).powi(24); // kg of earth
+    let G: f64 = 6.678 * (10. as f64).powi(11);
+    let distance_scale = (10. as f64).powi(11); // distance like 100, 250
+    let timestep_scale = 1000.;
+
     for (satellite, mut transform) in &mut query {
         // TODO: compute for various orbital radii, based on time elapsed
-        let cycle_position = (timestep.0 % TIMESTEP_PER_CANONICAL_CYCLE) as f64
-            / TIMESTEP_PER_CANONICAL_CYCLE as f64;
+
+        let r_3 = (satellite.distance_from_central_body * distance_scale).powi(3);
+        let orbital_period_secs = (4. * pi_2 * r_3) / (G * m_central);
+        println!("Satellite = {:?}", satellite);
+        println!("Orbital period = {:?}", orbital_period_secs);
+
+        // let cycle_position = (timestep.0 % TIMESTEP_PER_CANONICAL_CYCLE) as f64
+        //     / TIMESTEP_PER_CANONICAL_CYCLE as f64;
+        let mut timestep_prime = (timestep.0 as f64) * timestep_scale;
+        while timestep_prime > orbital_period_secs {
+            timestep_prime -= orbital_period_secs;
+        }
+        let cycle_position = timestep_prime / orbital_period_secs;
 
         let angle_radians: f64 = 2. * PI * cycle_position;
         let x = satellite.distance_from_central_body * angle_radians.cos();
@@ -97,7 +114,7 @@ fn move_shapes(
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 struct Satellite {
     distance_from_central_body: f64,
     // central_mass: f64,

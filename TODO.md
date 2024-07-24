@@ -1,5 +1,5 @@
-- [ ] draw a body orbiting another body
-- [ ] make orbit speed relate to real math
+- [x] draw a body orbiting another body
+- [x] make orbit speed relate to real math
 - [ ] allow swapping bodies
   - [ ] sat bodies
   - [ ] central body
