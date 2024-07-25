@@ -40,19 +40,38 @@ fn setup_shapes(
     // );
 
     let bodies = [
-        Body::new(0., M_EARTH, Color::srgb(1., 0., 0.)),
-        Body::new(100., M_EARTH * 1.25, Color::srgb(1., 1., 0.)),
-        Body::new(200., M_EARTH * 1.5, Color::srgb(0., 1., 1.)),
-        Body::new(300., M_EARTH * 1.75, Color::srgb(1., 0., 1.)),
+        Body::new(DISTANCES[0], M_EARTH, Color::srgb(1., 0., 0.)),
+        Body::new(DISTANCES[1], M_EARTH * 1.25, Color::srgb(1., 1., 0.)),
+        Body::new(DISTANCES[2], M_EARTH * 1.5, Color::srgb(0., 1., 1.)),
+        Body::new(DISTANCES[3], M_EARTH * 1.75, Color::srgb(1., 0., 1.)),
+        Body::new(DISTANCES[4], M_EARTH * 3., Color::srgb(0., 0.5, 1.)),
+        Body::new(DISTANCES[5], M_EARTH * 5., Color::srgb(0.5, 0., 0.5)),
     ];
     //  let (d0, m0) = (0., M_EARTH);
     //     let (d1, m1) = (100., 2. * M_EARTH);
     //     let (d2, m2) = (200., 3. * M_EARTH);
 
+    // draw orbits
+    let orbit_color = Color::srgb(0.9, 0.9, 0.9);
+    for d in DISTANCES {
+        if d == 0. {
+            continue; // don't draw orbit (point!) for central body
+        }
+        let shape = Mesh2dHandle(meshes.add(Annulus::new(d as f32 - 1.0, d as f32 + 1.0)));
+
+        commands.spawn((MaterialMesh2dBundle {
+            mesh: shape,
+            material: materials.add(orbit_color),
+            transform: Transform::from_translation(Vec3::ZERO),
+            ..default()
+        },));
+    }
+
     // for (d, m) in [(d1, m1), (d2, m2)] {
     for body in bodies {
         // spawn sat
-        let shape = Mesh2dHandle(meshes.add(Circle { radius: 5. }));
+        let radius = (body.mass / M_EARTH * 5.) as f32;
+        let shape = Mesh2dHandle(meshes.add(Circle { radius }));
 
         commands.spawn((
             MaterialMesh2dBundle {
@@ -78,16 +97,14 @@ fn setup_shapes(
 
 static M_EARTH: f64 = 5.98e24;
 
-fn change_orbits(
-    input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Body, &mut Transform)>,
-    timestep: ResMut<Timestep>,
-) {
+const DISTANCES: [f64; 6] = [0., 75., 120., 175., 250., 350.];
+
+fn change_orbits(input: Res<ButtonInput<KeyCode>>, mut query: Query<(&mut Body, &mut Transform)>) {
     if !input.just_pressed(KeyCode::KeyO) {
         return;
     }
 
-    let mut distances = vec![0., 100., 200., 300.];
+    let mut distances = DISTANCES.clone().to_vec();
     // let slice: &mut [u32] = &mut distances;
     let mut rng = thread_rng();
     distances.shuffle(&mut rng);
