@@ -6,6 +6,9 @@ https://www.physicsclassroom.com/class/circles/Lesson-4/Mathematics-of-Satellite
 elliptical orbits:
 https://en.wikipedia.org/wiki/Elliptic_orbit
 
+fundamentals of astrodynamics
+https://cmp.felk.cvut.cz/~kukelova/pajdla/Bate,%20Mueller,%20and%20White%20-%20Fundamentals%20of%20Astrodynamics.pdf
+
 --
 
 orbits

@@ -37,47 +37,14 @@ fn main() {
         .add_plugins(Wireframe2dPlugin)
         .add_plugins(bodies_plugin)
         .add_systems(Startup, setup)
-        // .add_systems(Startup, setup_shapes)
-        // .add_systems(Update, sprite_movement)
-        // .add_systems(Update, customize_config)
+        .add_systems(Update, customize_config)
         .add_systems(Update, change_clear_color)
-        .add_systems(Update, toggle_wireframe)
         .add_systems(Update, quit_game)
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("ducky.png"),
-            ..Default::default()
-        },
-        Direction::Up,
-    ));
-}
-
-#[derive(Component)]
-enum Direction {
-    Up,
-    Down,
-}
-
-/// The sprite is animated by changing its translation depending on the time that has passed since
-/// the last frame.
-fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
-    for (mut logo, mut transform) in &mut sprite_position {
-        match *logo {
-            Direction::Up => transform.translation.y += 150. * time.delta_seconds(),
-            Direction::Down => transform.translation.y -= 150. * time.delta_seconds(),
-        }
-
-        if transform.translation.y > 200. {
-            *logo = Direction::Down;
-        } else if transform.translation.y < -200. {
-            *logo = Direction::Up;
-        }
-    }
 }
 
 fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
@@ -93,15 +60,6 @@ fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOve
 fn change_clear_color(input: Res<ButtonInput<KeyCode>>, mut clear_color: ResMut<ClearColor>) {
     if input.just_pressed(KeyCode::Space) {
         clear_color.0 = PURPLE.into();
-    }
-}
-
-fn toggle_wireframe(
-    mut wireframe_config: ResMut<Wireframe2dConfig>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-) {
-    if keyboard.just_pressed(KeyCode::KeyS) {
-        wireframe_config.global = !wireframe_config.global;
     }
 }
 

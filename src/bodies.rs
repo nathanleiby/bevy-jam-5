@@ -1,22 +1,26 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
+use rand::seq::SliceRandom;
+use rand::{thread_rng, Rng};
 use std::f64::consts::PI;
+use std::f64::EPSILON;
 
 use bevy::prelude::*;
-use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
+use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle, Wireframe2dConfig};
 
 pub fn bodies_plugin(app: &mut App) {
-    app.insert_resource(Timestep(0));
-    app.add_systems(Startup, setup_shapes);
-    app.add_systems(Update, move_shapes);
-    app.add_systems(Update, change_timestep);
+    app.insert_resource(Timestep(0))
+        .add_systems(Startup, setup_shapes)
+        .add_systems(Update, toggle_wireframe)
+        .add_systems(Update, change_orbits)
+        .add_systems(Update, change_timestep)
+        .add_systems(Update, move_shapes);
 }
 
 // TODO: why isn't deref mut working to avoid need for .0 ?
 #[derive(Resource, Deref, DerefMut)]
 struct Timestep(usize);
 
-const TIMESTEP_PER_CANONICAL_CYCLE: usize = 16;
 const MIN_TIMESTEP: usize = 0;
 const MAX_TIMESTEP: usize = 200; // Not sure about this, but some kinda bounds to avoid too many cycles for player to consider? Think opus magnum
 
@@ -34,36 +38,30 @@ fn setup_shapes(
     //     &mut materials,
     //     Satellite { radius: 250. },
     // );
-    let d1 = 100.;
-    let d2 = 200.;
 
-    for distance_from_central_body in [d1, d2] {
+    let bodies = [
+        Body::new(0., M_EARTH, Color::srgb(1., 0., 0.)),
+        Body::new(100., M_EARTH * 1.25, Color::srgb(1., 1., 0.)),
+        Body::new(200., M_EARTH * 1.5, Color::srgb(0., 1., 1.)),
+        Body::new(300., M_EARTH * 1.75, Color::srgb(1., 0., 1.)),
+    ];
+    //  let (d0, m0) = (0., M_EARTH);
+    //     let (d1, m1) = (100., 2. * M_EARTH);
+    //     let (d2, m2) = (200., 3. * M_EARTH);
+
+    // for (d, m) in [(d1, m1), (d2, m2)] {
+    for body in bodies {
         // spawn sat
-        let satellite = Satellite::new(distance_from_central_body);
         let shape = Mesh2dHandle(meshes.add(Circle { radius: 5. }));
 
-        // let hue = 180.; // 0 - 360
-        let hue = if distance_from_central_body == d1 {
-            100.
-        } else if distance_from_central_body == d2 {
-            200.
-        } else {
-            0.
-        };
-
-        let color = Color::hsl(hue, 0.95, 0.7);
         commands.spawn((
             MaterialMesh2dBundle {
                 mesh: shape,
-                material: materials.add(color),
-                transform: Transform::from_xyz(
-                    satellite.distance_from_central_body as f32,
-                    0.0,
-                    0.0,
-                ),
+                material: materials.add(body.color),
+                transform: Transform::from_xyz(body.distance_from_central_body as f32, 0.0, 0.0),
                 ..default()
             },
-            satellite,
+            body,
         ));
     }
 
@@ -78,25 +76,54 @@ fn setup_shapes(
     );
 }
 
+static M_EARTH: f64 = 5.98e24;
+
+fn change_orbits(
+    input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<(&mut Body, &mut Transform)>,
+    timestep: ResMut<Timestep>,
+) {
+    if !input.just_pressed(KeyCode::KeyO) {
+        return;
+    }
+
+    let mut distances = vec![0., 100., 200., 300.];
+    // let slice: &mut [u32] = &mut distances;
+    let mut rng = thread_rng();
+    distances.shuffle(&mut rng);
+
+    let mut idx = 0;
+    for (mut body, _transform) in &mut query {
+        body.distance_from_central_body = distances[idx];
+        idx += 1;
+    }
+}
+
 fn move_shapes(
     // time: Res<Time>,
-    mut query: Query<(&mut Satellite, &mut Transform)>,
+    mut query: Query<(&mut Body, &mut Transform)>,
     timestep: Res<Timestep>,
 ) {
     // Cycle duration
 
     let pi_2 = PI.powi(2);
-    let m_central = 5.98 * (10 as f64).powi(24); // kg of earth
-    let G: f64 = 6.678 * (10. as f64).powi(11);
-    let distance_scale = (10. as f64).powi(11); // distance like 100, 250
-    let timestep_scale = 1000.;
+    let m_central = M_EARTH;
+    let gravity: f64 = 6.678e11;
+    let distance_scale = 1e11; // multiplier for distance like 100, 250
+    let timestep_scale = 1e3;
 
-    for (satellite, mut transform) in &mut query {
+    for (body, mut transform) in &mut query {
+        if body.distance_from_central_body < EPSILON {
+            transform.translation = Vec3::ZERO;
+            // approx 0
+            // ignore the central body of the system
+            continue;
+        }
         // TODO: compute for various orbital radii, based on time elapsed
 
-        let r_3 = (satellite.distance_from_central_body * distance_scale).powi(3);
-        let orbital_period_secs = (4. * pi_2 * r_3) / (G * m_central);
-        println!("Satellite = {:?}", satellite);
+        let r_3 = (body.distance_from_central_body * distance_scale).powi(3);
+        let orbital_period_secs = (4. * pi_2 * r_3) / (gravity * m_central);
+        println!("Satellite = {:?}", body);
         println!("Orbital period = {:?}", orbital_period_secs);
 
         // let cycle_position = (timestep.0 % TIMESTEP_PER_CANONICAL_CYCLE) as f64
@@ -108,28 +135,34 @@ fn move_shapes(
         let cycle_position = timestep_prime / orbital_period_secs;
 
         let angle_radians: f64 = 2. * PI * cycle_position;
-        let x = satellite.distance_from_central_body * angle_radians.cos();
-        let y = satellite.distance_from_central_body * angle_radians.sin();
+        let x = body.distance_from_central_body * angle_radians.cos();
+        let y = body.distance_from_central_body * angle_radians.sin();
         transform.translation = Vec3::new(x as f32, y as f32, 0.);
     }
 }
 
 #[derive(Component, Debug)]
-struct Satellite {
+struct Body {
     distance_from_central_body: f64,
-    // central_mass: f64,
-    // hue: f32,
+    mass: f64,
+    color: Color,
 }
 
-impl Satellite {
-    fn new(radius: f64) -> Self {
+impl Body {
+    fn new(distance_from_central_body: f64, mass: f64, color: Color) -> Self {
         Self {
-            distance_from_central_body: radius,
-            // // central_mass,
-            // hue: 180.,
+            distance_from_central_body,
+            mass,
+            color,
         }
     }
 }
+
+// TODO: refactor out the idea of ring radius into the System (puzzle) itself. The bodies don't need to store it
+// #[derive(Component, Debug)]
+// struct System {
+//     positions: Vec<Vec3>,
+// }
 
 // fn spawn_satellite_entity(
 //     mut commands: Commands,
@@ -152,6 +185,14 @@ impl Satellite {
 // }
 
 fn change_timestep(input: Res<ButtonInput<KeyCode>>, mut timestep: ResMut<Timestep>) {
+    // press "r" to reset timestamp
+    if input.just_pressed(KeyCode::KeyR) {
+        if timestep.0 < MAX_TIMESTEP {
+            timestep.0 = 0;
+        }
+    }
+
+    // press right arrow or left arrow to adjust timestamp
     if input.just_pressed(KeyCode::ArrowRight) {
         if timestep.0 < MAX_TIMESTEP {
             timestep.0 += 1;
@@ -165,4 +206,13 @@ fn change_timestep(input: Res<ButtonInput<KeyCode>>, mut timestep: ResMut<Timest
     }
 
     println!("Timestep = {}", timestep.0);
+}
+
+fn toggle_wireframe(
+    mut wireframe_config: ResMut<Wireframe2dConfig>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyS) {
+        wireframe_config.global = !wireframe_config.global;
+    }
 }
