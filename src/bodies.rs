@@ -13,14 +13,15 @@ pub fn bodies_plugin(app: &mut App) {
     app.init_resource::<Timestep>()
         // register types for bevy UI debugger
         .register_type::<Body>()
-        .register_type::<PlayStatus>()
+        .register_type::<IsPlaying>()
         .register_type::<Timestep>()
         .add_plugins(ResourceInspectorPlugin::<Timestep>::default())
         .add_systems(Startup, setup_play_status)
         .add_systems(Startup, setup_shapes)
         .add_systems(Update, toggle_wireframe)
         .add_systems(Update, change_orbits)
-        .add_systems(Update, change_timestep)
+        .add_systems(Update, handle_timestep_input)
+        .add_systems(Update, update_timestep)
         .add_systems(Update, move_shapes);
 }
 
@@ -40,7 +41,7 @@ const MIN_TIMESTEP: f64 = 0.;
 const MAX_TIMESTEP: f64 = 200.; // Not sure about this, but some kinda bounds to avoid too many cycles for player to consider? Think opus magnum
 
 fn setup_play_status(mut commands: Commands) {
-    commands.spawn((PlayStatus::Pause, Name::new("PlayStatus")));
+    commands.spawn((IsPlaying(false), Name::new("IsPlaying")));
 }
 
 fn setup_shapes(
@@ -49,10 +50,10 @@ fn setup_shapes(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // TODO: build_puzzle() .. can just compute distances, bodies don't really matter given Mass is N/A except central mass
-    let bodies = bodies_from_periods(vec![0., f64::sqrt(3.), 2., 3., 4., 5., 6.]);
+    let bodies = bodies_from_periods(vec![0., 1., f64::sqrt(3.), 2., 3., 4., 5., 6.]);
 
     // draw orbits
-    let orbit_color = Color::srgb(0.9, 0.9, 0.9);
+    let orbit_color = Color::srgba(0.9, 0.9, 0.9, 0.5);
     let distances: Vec<f64> = bodies
         .iter()
         .map(|b| b.distance_from_central_body)
@@ -185,13 +186,18 @@ impl Body {
 }
 
 #[derive(Component, Reflect)]
-enum PlayStatus {
-    Play,
-    Pause,
-}
+struct IsPlaying(bool);
 
-fn change_timestep(input: Res<ButtonInput<KeyCode>>, mut timestep: ResMut<Timestep>) {
-    let timestep_before = timestep.0;
+fn handle_timestep_input(
+    input: Res<ButtonInput<KeyCode>>,
+    mut timestep: ResMut<Timestep>,
+    mut query: Query<&mut IsPlaying>,
+) {
+    for mut play_status in &mut query {
+        if input.just_pressed(KeyCode::Space) {
+            play_status.0 = !play_status.0;
+        }
+    }
 
     // press "r" to reset timestamp
     if input.just_pressed(KeyCode::KeyR) {
@@ -212,9 +218,16 @@ fn change_timestep(input: Res<ButtonInput<KeyCode>>, mut timestep: ResMut<Timest
             timestep.0 = timestep.0.ceil() - 1.;
         }
     }
+}
 
-    if timestep.0 != timestep_before {
-        println!("updated Timestep = {}", timestep.0);
+// TODO: make this a user set (play, 2x, Fast (5x), pause) so they can slowmo the simulation and think about it? (nit: doesn't fit well with music. Instead maybe a BPM per system)
+const TIMESTEP_SPEED: f64 = 0.005;
+
+fn update_timestep(mut timestep: ResMut<Timestep>, query: Query<&IsPlaying>) {
+    for play_status in &query {
+        if play_status.0 {
+            timestep.0 += TIMESTEP_SPEED;
+        }
     }
 }
 
