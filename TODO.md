@@ -2,37 +2,14 @@
 
 ## Active
 
-- [ ] Get it drawing again!!
-
-- [ ] 3 orbits, 2 bodies
-
-  - [ ] desired alignment = 2 against 4..
-  - [ ] 3rd orbit can be sqroot(3)
-
-- [ ] tweak sun size
+- [ ] smoothly animate the rotation (not hard timesteps) - play/pause/reset
 
 ## Paused
 
-- [..] simplify the math a lot to ease puzzle design
-
-orbital period $T$ is
-
-$T=2\pi {\sqrt {a^{3} \over {\mu }}}$
-
-where:
-
-$\mu$ is tstandard gravitational parameter.
-
-$a$ is the length of the semi-major axis.
-
-Suggested path forward: hard code period, and compute radius from that.
-
-For simplicity, the wrong period value could be an irrational number (or most fractions), so it will never sync up an an integer LCM.
-
 ## Backlog
 
-- [ ] smoothly animate the rotation (not hard timesteps) - play/pause/reset
 - [ ] success when syzygy occurs!
+- [ ] tweak sun size
 - [ ] handcrafted puzzles
   - [ ] 3 orbits, 2 bodies
     - [ ] desired sound = 2 against 4
@@ -46,12 +23,17 @@ For simplicity, the wrong period value could be an irrational number (or most fr
     - [ ] desired sound = 2 against 5
 - [ ] bug: flickering of overlapping meshes. draw order?
 - [ ] play sound for each orbit
+  - [ ] maybe use https://github.com/NiklasEi/bevy_kira_audio for better clock scheduling?
+  - [ ] ensure web build works with audio
 - [ ] add "notches" (debug only) to the orbits that make sound. e.g. every pi/2 or every pi/3
 - [ ] add entity spawn fn, for Bevy ease of use (spawn_x)
 - [ ] refactor out idea of System/Puzzle
 
 ## Done
 
+- [x] Get it drawing again!!
+- [x] simplify the math a lot to ease puzzle design .. orbital period $T$ is $T=2\pi {\sqrt {a^{3} \over {\mu }}}$
+      For simplicity, the wrong period value could be an irrational number (or most fractions), so it will never sync up an an integer LCM.
 - [x] draw a body orbiting another body
 - [x] make orbit speed relate to real math
 - [x] allow choosing position (aka: assinging body to specific radius from central mass)

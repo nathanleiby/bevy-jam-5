@@ -1,7 +1,8 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
+use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng};
+use rand::thread_rng;
 use std::f64::consts::PI;
 use std::f64::EPSILON;
 
@@ -9,8 +10,13 @@ use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle, Wireframe2dConfig};
 
 pub fn bodies_plugin(app: &mut App) {
-    app.insert_resource(Timestep(0))
+    app.init_resource::<Timestep>()
+        // register types for bevy UI debugger
         .register_type::<Body>()
+        .register_type::<PlayStatus>()
+        .register_type::<Timestep>()
+        .add_plugins(ResourceInspectorPlugin::<Timestep>::default())
+        .add_systems(Startup, setup_play_status)
         .add_systems(Startup, setup_shapes)
         .add_systems(Update, toggle_wireframe)
         .add_systems(Update, change_orbits)
@@ -20,11 +26,22 @@ pub fn bodies_plugin(app: &mut App) {
 
 // TODO: why isn't deref mut working to avoid need for .0 ?
 // TODO: Update this to be a float, but make timestep lock to 1.0 and do +1, -1 (for debugging? for gameplay?)
-#[derive(Resource, Deref, DerefMut)]
-struct Timestep(usize);
+#[derive(Resource, Deref, DerefMut, Reflect)]
+struct Timestep(f64);
 
-const MIN_TIMESTEP: usize = 0;
-const MAX_TIMESTEP: usize = 200; // Not sure about this, but some kinda bounds to avoid too many cycles for player to consider? Think opus magnum
+// custom implementation for unusual values
+impl Default for Timestep {
+    fn default() -> Self {
+        Timestep(0.)
+    }
+}
+
+const MIN_TIMESTEP: f64 = 0.;
+const MAX_TIMESTEP: f64 = 200.; // Not sure about this, but some kinda bounds to avoid too many cycles for player to consider? Think opus magnum
+
+fn setup_play_status(mut commands: Commands) {
+    commands.spawn((PlayStatus::Pause, Name::new("PlayStatus")));
+}
 
 fn setup_shapes(
     mut commands: Commands,
@@ -132,7 +149,6 @@ fn move_shapes(
 
         let orbital_period =
             2. * PI * f64::sqrt(body.distance_from_central_body.powi(3) / standard_grav_param);
-        println!("Body = {:?} .. Orbital Period = {:?}", body, orbital_period);
 
         let mut timestep_prime = (timestep.0 as f64);
         while timestep_prime > orbital_period {
@@ -168,28 +184,38 @@ impl Body {
     }
 }
 
+#[derive(Component, Reflect)]
+enum PlayStatus {
+    Play,
+    Pause,
+}
+
 fn change_timestep(input: Res<ButtonInput<KeyCode>>, mut timestep: ResMut<Timestep>) {
+    let timestep_before = timestep.0;
+
     // press "r" to reset timestamp
     if input.just_pressed(KeyCode::KeyR) {
         if timestep.0 < MAX_TIMESTEP {
-            timestep.0 = 0;
+            timestep.0 = 0.;
         }
     }
 
     // press right arrow or left arrow to adjust timestamp
     if input.just_pressed(KeyCode::ArrowRight) {
         if timestep.0 < MAX_TIMESTEP {
-            timestep.0 += 1;
+            timestep.0 = timestep.0.floor() + 1.;
         }
     }
 
     if input.just_pressed(KeyCode::ArrowLeft) {
         if timestep.0 > MIN_TIMESTEP {
-            timestep.0 -= 1;
+            timestep.0 = timestep.0.ceil() - 1.;
         }
     }
 
-    println!("Timestep = {}", timestep.0);
+    if timestep.0 != timestep_before {
+        println!("updated Timestep = {}", timestep.0);
+    }
 }
 
 fn toggle_wireframe(

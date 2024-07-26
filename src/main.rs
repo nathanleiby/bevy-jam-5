@@ -26,7 +26,7 @@ struct Configuration {
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 0.9))) // starting background color
+        .insert_resource(ClearColor(PURPLE.into())) // starting background color
         .add_plugins(DefaultPlugins.set(AssetPlugin {
             // Wasm builds will check for meta files (that don't exist) if this isn't set.
             // This causes errors and even panics in web builds on itch.
@@ -78,7 +78,7 @@ fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOve
 
 fn change_clear_color(input: Res<ButtonInput<KeyCode>>, mut clear_color: ResMut<ClearColor>) {
     if input.just_pressed(KeyCode::Space) {
-        clear_color.0 = PURPLE.into();
+        clear_color.0 = Color::srgb(0.5, 0.5, 0.9);
     }
 }
 
