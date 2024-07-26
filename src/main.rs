@@ -12,6 +12,18 @@ use bevy::{asset::AssetMetaCheck, color::palettes::css::PURPLE};
 use bevy_dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 use bodies::bodies_plugin;
 
+use bevy_inspector_egui::prelude::*;
+use bevy_inspector_egui::quick::{ResourceInspectorPlugin, WorldInspectorPlugin};
+
+// `InspectorOptions` are completely optional
+#[derive(Reflect, Resource, Default, InspectorOptions)]
+#[reflect(Resource, InspectorOptions)]
+struct Configuration {
+    name: String,
+    #[inspector(min = 0.0, max = 1.0)]
+    option: f32,
+}
+
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 0.9))) // starting background color
@@ -22,6 +34,13 @@ fn main() {
             meta_check: AssetMetaCheck::Never,
             ..default()
         }))
+        // Debug overlay
+        .init_resource::<Configuration>() // `ResourceInspectorPlugin` won't initialize the resource
+        .register_type::<Configuration>() // you need to register your type to display it
+        .add_plugins(ResourceInspectorPlugin::<Configuration>::default())
+        // also works with built-in resources, as long as they are `Reflect`
+        .add_plugins(ResourceInspectorPlugin::<Time>::default())
+        .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(FpsOverlayPlugin {
             config: FpsOverlayConfig {
                 text_config: TextStyle {

@@ -10,6 +10,7 @@ use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle, Wireframe2dConfig};
 
 pub fn bodies_plugin(app: &mut App) {
     app.insert_resource(Timestep(0))
+        .register_type::<Body>()
         .add_systems(Startup, setup_shapes)
         .add_systems(Update, toggle_wireframe)
         .add_systems(Update, change_orbits)
@@ -18,6 +19,7 @@ pub fn bodies_plugin(app: &mut App) {
 }
 
 // TODO: why isn't deref mut working to avoid need for .0 ?
+// TODO: Update this to be a float, but make timestep lock to 1.0 and do +1, -1 (for debugging? for gameplay?)
 #[derive(Resource, Deref, DerefMut)]
 struct Timestep(usize);
 
@@ -29,35 +31,24 @@ fn setup_shapes(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    // TODO: Setup a central body
-
-    // spawn_satellite_entity(&commands, &meshes, &materials, Satellite { radius: 50. });
-    // spawn_satellite_entity(
-    //     &mut commands,
-    //     &mut meshes,
-    //     &mut materials,
-    //     Satellite { radius: 250. },
-    // );
-
-    let bodies = [
-        Body::new(DISTANCES[0], M_EARTH, Color::srgb(1., 0., 0.)),
-        Body::new(DISTANCES[1], M_EARTH * 1.25, Color::srgb(1., 1., 0.)),
-        Body::new(DISTANCES[2], M_EARTH * 1.5, Color::srgb(0., 1., 1.)),
-        Body::new(DISTANCES[3], M_EARTH * 1.75, Color::srgb(1., 0., 1.)),
-        Body::new(DISTANCES[4], M_EARTH * 3., Color::srgb(0., 0.5, 1.)),
-        Body::new(DISTANCES[5], M_EARTH * 5., Color::srgb(0.5, 0., 0.5)),
-    ];
-    //  let (d0, m0) = (0., M_EARTH);
-    //     let (d1, m1) = (100., 2. * M_EARTH);
-    //     let (d2, m2) = (200., 3. * M_EARTH);
+    // TODO: build_puzzle() .. can just compute distances, bodies don't really matter given Mass is N/A except central mass
+    let bodies = bodies_from_periods(vec![0., f64::sqrt(3.), 2., 3., 4., 5., 6.]);
 
     // draw orbits
     let orbit_color = Color::srgb(0.9, 0.9, 0.9);
-    for d in DISTANCES {
+    let distances: Vec<f64> = bodies
+        .iter()
+        .map(|b| b.distance_from_central_body)
+        .collect();
+
+    for d in distances {
         if d == 0. {
             continue; // don't draw orbit (point!) for central body
         }
-        let shape = Mesh2dHandle(meshes.add(Annulus::new(d as f32 - 1.0, d as f32 + 1.0)));
+        let inner_radius = d as f32 * DISTANCE_UI_SCALE - 1.;
+        let outer_radius = inner_radius + 2.;
+
+        let shape = Mesh2dHandle(meshes.add(Annulus::new(inner_radius, outer_radius)));
 
         commands.spawn((MaterialMesh2dBundle {
             mesh: shape,
@@ -67,19 +58,22 @@ fn setup_shapes(
         },));
     }
 
-    // for (d, m) in [(d1, m1), (d2, m2)] {
     for body in bodies {
-        // spawn sat
-        let radius = (body.mass / M_EARTH * 5.) as f32;
+        let radius = (body.mass * 5.) as f32;
         let shape = Mesh2dHandle(meshes.add(Circle { radius }));
 
         commands.spawn((
             MaterialMesh2dBundle {
                 mesh: shape,
                 material: materials.add(body.color),
-                transform: Transform::from_xyz(body.distance_from_central_body as f32, 0.0, 0.0),
+                transform: Transform::from_xyz(
+                    body.distance_from_central_body as f32 * DISTANCE_UI_SCALE,
+                    0.0,
+                    0.0,
+                ),
                 ..default()
             },
+            Name::new(format!("body_{}", body.distance_from_central_body)), // TODO: better naming
             body,
         ));
     }
@@ -95,20 +89,22 @@ fn setup_shapes(
     );
 }
 
-static M_EARTH: f64 = 5.98e24;
-
-const DISTANCES: [f64; 6] = [0., 75., 120., 175., 250., 350.];
-
 fn change_orbits(input: Res<ButtonInput<KeyCode>>, mut query: Query<(&mut Body, &mut Transform)>) {
     if !input.just_pressed(KeyCode::KeyO) {
         return;
     }
 
-    let mut distances = DISTANCES.clone().to_vec();
-    // let slice: &mut [u32] = &mut distances;
+    // Get all distances from the bodies
+    let mut distances = vec![];
+    for (body, _) in &query {
+        distances.push(body.distance_from_central_body);
+    }
+
+    // shuffle distances
     let mut rng = thread_rng();
     distances.shuffle(&mut rng);
 
+    // update bodies
     let mut idx = 0;
     for (mut body, _transform) in &mut query {
         body.distance_from_central_body = distances[idx];
@@ -121,14 +117,6 @@ fn move_shapes(
     mut query: Query<(&mut Body, &mut Transform)>,
     timestep: Res<Timestep>,
 ) {
-    // Cycle duration
-
-    let pi_2 = PI.powi(2);
-    let m_central = M_EARTH;
-    let gravity: f64 = 6.678e11;
-    let distance_scale = 1e11; // multiplier for distance like 100, 250
-    let timestep_scale = 1e3;
-
     for (body, mut transform) in &mut query {
         if body.distance_from_central_body < EPSILON {
             transform.translation = Vec3::ZERO;
@@ -136,29 +124,34 @@ fn move_shapes(
             // ignore the central body of the system
             continue;
         }
-        // TODO: compute for various orbital radii, based on time elapsed
 
-        let r_3 = (body.distance_from_central_body * distance_scale).powi(3);
-        let orbital_period_secs = (4. * pi_2 * r_3) / (gravity * m_central);
-        println!("Satellite = {:?}", body);
-        println!("Orbital period = {:?}", orbital_period_secs);
+        let standard_grav_param = 1.; // TODO: G(m1+m2), or G(M) if one body is much larger
+                                      // For better physics:
+                                      // - [ ] tweak sun size to affect standard_grav_param
+                                      // - [ ] assign orbits for nice polyrhythms
 
-        // let cycle_position = (timestep.0 % TIMESTEP_PER_CANONICAL_CYCLE) as f64
-        //     / TIMESTEP_PER_CANONICAL_CYCLE as f64;
-        let mut timestep_prime = (timestep.0 as f64) * timestep_scale;
-        while timestep_prime > orbital_period_secs {
-            timestep_prime -= orbital_period_secs;
+        let orbital_period =
+            2. * PI * f64::sqrt(body.distance_from_central_body.powi(3) / standard_grav_param);
+        println!("Body = {:?} .. Orbital Period = {:?}", body, orbital_period);
+
+        let mut timestep_prime = (timestep.0 as f64);
+        while timestep_prime > orbital_period {
+            timestep_prime -= orbital_period;
         }
-        let cycle_position = timestep_prime / orbital_period_secs;
+        let cycle_position = timestep_prime / orbital_period;
 
         let angle_radians: f64 = 2. * PI * cycle_position;
         let x = body.distance_from_central_body * angle_radians.cos();
         let y = body.distance_from_central_body * angle_radians.sin();
-        transform.translation = Vec3::new(x as f32, y as f32, 0.);
+        transform.translation = Vec3::new(
+            x as f32 * DISTANCE_UI_SCALE,
+            y as f32 * DISTANCE_UI_SCALE,
+            0.,
+        );
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Reflect)]
 struct Body {
     distance_from_central_body: f64,
     mass: f64,
@@ -174,32 +167,6 @@ impl Body {
         }
     }
 }
-
-// TODO: refactor out the idea of ring radius into the System (puzzle) itself. The bodies don't need to store it
-// #[derive(Component, Debug)]
-// struct System {
-//     positions: Vec<Vec3>,
-// }
-
-// fn spawn_satellite_entity(
-//     mut commands: Commands,
-//     mut meshes: ResMut<Assets<Mesh>>,
-//     mut materials: ResMut<Assets<ColorMaterial>>,
-//     satellite: Satellite,
-// ) {
-//     let shape = Mesh2dHandle(meshes.add(Circle { radius: 50.0 }));
-//     let hue = 180.; // 0 - 360
-//     let color = Color::hsl(hue, 0.95, 0.7);
-//     commands.spawn((
-//         MaterialMesh2dBundle {
-//             mesh: shape,
-//             material: materials.add(color),
-//             transform: Transform::from_xyz(satellite.radius as f32, 0.0, 0.0),
-//             ..default()
-//         },
-//         satellite,
-//     ));
-// }
 
 fn change_timestep(input: Res<ButtonInput<KeyCode>>, mut timestep: ResMut<Timestep>) {
     // press "r" to reset timestamp
@@ -232,4 +199,27 @@ fn toggle_wireframe(
     if keyboard.just_pressed(KeyCode::KeyS) {
         wireframe_config.global = !wireframe_config.global;
     }
+}
+
+const DISTANCE_UI_SCALE: f32 = 300.;
+
+fn bodies_from_periods(periods: Vec<f64>) -> Vec<Body> {
+    // given a list of orbital periods, compute the radii
+    let mut out = vec![];
+    for (idx, period) in periods.iter().enumerate() {
+        let hue = (1. - idx as f32 / periods.len() as f32) * 360.;
+        let color = Color::hsl(hue, 0.95, 0.7);
+
+        // TODO: simplified formula
+        // TODO: confirk works for central body? shoiuld be 0
+        let distance = f64::powf((period / (2. * PI)).powi(2), 1. / 3.);
+        // let orbital_period_secs = (4. * pi_2 * r_3) / (gravity * m_central);
+
+        let mass = 1.;
+
+        let b = Body::new(distance, mass, color);
+        out.push(b);
+    }
+
+    out
 }
