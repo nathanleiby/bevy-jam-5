@@ -5,15 +5,17 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
 mod bodies;
+mod debug;
 
 use bevy::prelude::*;
-use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
+use bevy::sprite::Wireframe2dPlugin;
 use bevy::{asset::AssetMetaCheck, color::palettes::css::PURPLE};
 use bevy_dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 use bodies::bodies_plugin;
 
 use bevy_inspector_egui::prelude::*;
-use bevy_inspector_egui::quick::{ResourceInspectorPlugin, WorldInspectorPlugin};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use debug::debug_plugin;
 
 // `InspectorOptions` are completely optional
 #[derive(Reflect, Resource, Default, InspectorOptions)]
@@ -34,39 +36,24 @@ fn main() {
             meta_check: AssetMetaCheck::Never,
             ..default()
         }))
-        // Debug overlay
-        .init_resource::<Configuration>() // `ResourceInspectorPlugin` won't initialize the resource
-        .register_type::<Configuration>() // you need to register your type to display it
-        .add_plugins(ResourceInspectorPlugin::<Configuration>::default())
-        // also works with built-in resources, as long as they are `Reflect`
-        .add_plugins(ResourceInspectorPlugin::<Time>::default())
-        .add_plugins(WorldInspectorPlugin::new())
-        .add_plugins(FpsOverlayPlugin {
-            config: FpsOverlayConfig {
-                text_config: TextStyle {
-                    // Here we define size of our overlay
-                    font_size: 50.0,
-                    // We can also change color of the overlay
-                    color: Color::srgb(0.0, 1.0, 0.0),
-                    // If we want, we can use a custom font
-                    font: default(),
-                },
-            },
-        })
+        .add_plugins(debug_plugin)
+        // Game
         .add_plugins(Wireframe2dPlugin)
+        .add_systems(Startup, setup_camera)
         .add_plugins(bodies_plugin)
-        .add_systems(Startup, setup)
+        .add_systems(Update, quit_game)
+        // random prototyping
         .add_systems(Update, customize_config)
         .add_systems(Update, change_clear_color)
-        .add_systems(Update, quit_game)
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
 fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
+    // press "1" or "2" to adjust text params
     if input.just_pressed(KeyCode::Digit1) {
         // Changing resource will affect overlay
         overlay.text_config.color = Color::srgb(1.0, 0.0, 0.0);
@@ -77,12 +64,14 @@ fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOve
 }
 
 fn change_clear_color(input: Res<ButtonInput<KeyCode>>, mut clear_color: ResMut<ClearColor>) {
-    if input.just_pressed(KeyCode::Space) {
+    // press "c" to change color
+    if input.just_pressed(KeyCode::KeyC) {
         clear_color.0 = Color::srgb(0.5, 0.5, 0.9);
     }
 }
 
 fn quit_game(mut exit: EventWriter<AppExit>, keyboard: Res<ButtonInput<KeyCode>>) {
+    // press "q" to quit
     if keyboard.just_pressed(KeyCode::KeyQ) {
         exit.send(AppExit::Success);
     }
