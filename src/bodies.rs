@@ -1,6 +1,8 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
+use bevy_kira_audio::prelude::*;
+
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::f64::consts::PI;
@@ -51,7 +53,8 @@ fn setup_shapes(
 ) {
     // TODO: build_puzzle() .. can just compute distances, bodies don't really matter given Mass is N/A except central mass
     // let bodies = bodies_from_periods(vec![0., 1., f64::sqrt(3.), 2., 3., 4., 5., 6., 7., 8.]);
-    let bodies = bodies_from_periods(vec![f64::sqrt(3.), 2., f64::sqrt(6.), 3., f64::sqrt(11.)]);
+    // let bodies = bodies_from_periods(vec![f64::sqrt(3.), 2., f64::sqrt(6.), 3., f64::sqrt(11.)]);
+    let bodies = bodies_from_periods(vec![2., 3.]);
 
     // draw orbits
     let orbit_color = Color::srgba(0.9, 0.9, 0.9, 0.5);
@@ -136,6 +139,8 @@ fn move_shapes(
     // time: Res<Time>,
     mut query: Query<(&mut Body, &mut Transform)>,
     timestep: Res<Timestep>,
+    asset_server: Res<AssetServer>,
+    audio: Res<Audio>,
 ) {
     for (body, mut transform) in &mut query {
         if body.distance_from_central_body < EPSILON {
@@ -162,6 +167,18 @@ fn move_shapes(
         }
         let cycle_position = timestep_prime / orbital_period;
         // let cycle_position = timestep.0 / orbital_period;
+
+        let mut timestep_prime_prev = timestep.0 - TIMESTEP_SPEED;
+        while timestep_prime_prev > orbital_period {
+            timestep_prime_prev -= orbital_period;
+        }
+        // let cycle_position = timestep_prime_prev / orbital_period;
+
+        // check if any bodies have just passed 0-point
+        if timestep_prime < timestep_prime_prev {
+            // play SFX
+            audio.play(asset_server.load("plop.ogg"));
+        }
 
         let angle_radians: f64 = 2. * PI * cycle_position;
         let x = body.distance_from_central_body * angle_radians.cos();
