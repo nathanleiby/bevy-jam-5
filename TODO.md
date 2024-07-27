@@ -9,6 +9,9 @@
 ## Backlog
 
 - [ ] success when syzygy occurs!
+- [ ] play sound for each orbit
+  - [ ] maybe use https://github.com/NiklasEi/bevy_kira_audio for better clock scheduling?
+  - [ ] ensure web build works with audio
 - [ ] tweak sun size
 - [ ] handcrafted puzzles
   - [ ] 3 orbits, 2 bodies
@@ -22,9 +25,6 @@
   - [ ] 3 orbits, 2 bodies, 3 sun options
     - [ ] desired sound = 2 against 5
 - [ ] bug: flickering of overlapping meshes. draw order?
-- [ ] play sound for each orbit
-  - [ ] maybe use https://github.com/NiklasEi/bevy_kira_audio for better clock scheduling?
-  - [ ] ensure web build works with audio
 - [ ] add "notches" (debug only) to the orbits that make sound. e.g. every pi/2 or every pi/3
 - [ ] add entity spawn fn, for Bevy ease of use (spawn_x)
 - [ ] refactor out idea of System/Puzzle

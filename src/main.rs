@@ -10,11 +10,11 @@ mod debug;
 use bevy::prelude::*;
 use bevy::sprite::Wireframe2dPlugin;
 use bevy::{asset::AssetMetaCheck, color::palettes::css::PURPLE};
-use bevy_dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
+use bevy_dev_tools::fps_overlay::FpsOverlayConfig;
 use bodies::bodies_plugin;
 
 use bevy_inspector_egui::prelude::*;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_kira_audio::prelude::*;
 use debug::debug_plugin;
 
 // `InspectorOptions` are completely optional
@@ -36,22 +36,31 @@ fn main() {
             meta_check: AssetMetaCheck::Never,
             ..default()
         }))
+        .add_plugins(AudioPlugin)
         .add_plugins(debug_plugin)
         // Game
         .add_plugins(Wireframe2dPlugin)
         .add_systems(Startup, setup_camera)
         .add_plugins(bodies_plugin)
         .add_systems(Update, quit_game)
+        .add_systems(Startup, start_background_audio)
         // random prototyping
         .add_systems(Update, customize_config)
         .add_systems(Update, change_clear_color)
         .run();
 }
 
+// -- audio --
+fn start_background_audio(asset_server: Res<AssetServer>, audio: Res<Audio>) {
+    audio.play(asset_server.load("loop.ogg")).looped();
+}
+
+// -- game --
 fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
+// -- random prototyping --
 fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
     // press "1" or "2" to adjust text params
     if input.just_pressed(KeyCode::Digit1) {

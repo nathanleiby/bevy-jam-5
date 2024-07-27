@@ -50,7 +50,8 @@ fn setup_shapes(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // TODO: build_puzzle() .. can just compute distances, bodies don't really matter given Mass is N/A except central mass
-    let bodies = bodies_from_periods(vec![0., 1., f64::sqrt(3.), 2., 3., 4., 5., 6.]);
+    // let bodies = bodies_from_periods(vec![0., 1., f64::sqrt(3.), 2., 3., 4., 5., 6., 7., 8.]);
+    let bodies = bodies_from_periods(vec![f64::sqrt(3.), 2., f64::sqrt(6.), 3., f64::sqrt(11.)]);
 
     // draw orbits
     let orbit_color = Color::srgba(0.9, 0.9, 0.9, 0.5);
@@ -58,6 +59,7 @@ fn setup_shapes(
         .iter()
         .map(|b| b.distance_from_central_body)
         .collect();
+    println!("distances: {:?}", distances);
 
     for d in distances {
         if d == 0. {
@@ -143,19 +145,23 @@ fn move_shapes(
             continue;
         }
 
+        // let standard_grav_param = 2.; // TODO: G(m1+m2), or G(M) if one body is much larger
         let standard_grav_param = 1.; // TODO: G(m1+m2), or G(M) if one body is much larger
-                                      // For better physics:
-                                      // - [ ] tweak sun size to affect standard_grav_param
-                                      // - [ ] assign orbits for nice polyrhythms
+                                      //                               // For better physics:
+                                      //                               // - [ ] tweak sun size to affect standard_grav_param
+                                      //                               // - [ ] assign orbits for nice polyrhythms
+
+        // gravity of center and planet matter to each other!
 
         let orbital_period =
             2. * PI * f64::sqrt(body.distance_from_central_body.powi(3) / standard_grav_param);
 
-        let mut timestep_prime = (timestep.0 as f64);
+        let mut timestep_prime = timestep.0;
         while timestep_prime > orbital_period {
             timestep_prime -= orbital_period;
         }
         let cycle_position = timestep_prime / orbital_period;
+        // let cycle_position = timestep.0 / orbital_period;
 
         let angle_radians: f64 = 2. * PI * cycle_position;
         let x = body.distance_from_central_body * angle_radians.cos();

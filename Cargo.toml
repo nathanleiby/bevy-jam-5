@@ -16,7 +16,34 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = "0.14"
+bevy = { version = "0.14", default-features = false, features = [
+    "animation",
+    "bevy_asset",
+    "bevy_state",
+    "bevy_color",
+    "bevy_gilrs",
+    "bevy_scene",
+    "bevy_winit",
+    "bevy_core_pipeline",
+    "bevy_pbr",
+    "bevy_gltf",
+    "bevy_render",
+    "bevy_sprite",
+    "bevy_text",
+    "bevy_ui",
+    "multi_threaded",
+    "png",
+    "hdr",
+    "x11",
+    "bevy_gizmos",
+    "tonemapping_luts",
+    "smaa_luts",
+    "default_font",
+    "webgl2",
+    "sysinfo_plugin",
+] }
+bevy_kira_audio = { version = "0.20" }
 bevy-inspector-egui = "0.25.1"
 bevy_dev_tools = "=0.14.0"
 rand = "0.8.5"
+
