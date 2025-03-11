@@ -2,15 +2,14 @@
 
 ## Active
 
-- [ ] smoothly animate the rotation (not hard timesteps) - play/pause/reset
-
 ## Paused
 
 ## Backlog
 
 - [ ] success when syzygy occurs!
-- [ ] play sound for each orbit
-  - [ ] maybe use https://github.com/NiklasEi/bevy_kira_audio for better clock scheduling?
+- [ ] toggle on/off which bodies are active
+- [x] play sound for each orbit
+  - [x] maybe use https://github.com/NiklasEi/bevy_kira_audio for better clock scheduling?
   - [ ] ensure web build works with audio
 - [ ] tweak sun size
 - [ ] handcrafted puzzles
@@ -24,13 +23,24 @@
     - [ ] desired sound = 2 against 4
   - [ ] 3 orbits, 2 bodies, 3 sun options
     - [ ] desired sound = 2 against 5
+
+--
+
 - [ ] bug: flickering of overlapping meshes. draw order?
 - [ ] add "notches" (debug only) to the orbits that make sound. e.g. every pi/2 or every pi/3
 - [ ] add entity spawn fn, for Bevy ease of use (spawn_x)
 - [ ] refactor out idea of System/Puzzle
+- [ ] audio visualizer
+  - [ ] show waveforms in background for active sounds
+  - [ ] show EQ
+        ... synthwave vibe?
+        https://craiyon.com/image/cp8GFUTPSkWG34BRoZQ8Rg
+        https://elements.envato.com/music-visualizer-K3GXUFN
+        https://pics.craiyon.com/2023-09-27/3c1c6c77f9034bab83ebb2ac26e47022.webp
 
 ## Done
 
+- [x] smoothly animate the rotation (not hard timesteps) - play/pause/reset
 - [x] Get it drawing again!!
 - [x] simplify the math a lot to ease puzzle design .. orbital period $T$ is $T=2\pi {\sqrt {a^{3} \over {\mu }}}$
       For simplicity, the wrong period value could be an irrational number (or most fractions), so it will never sync up an an integer LCM.

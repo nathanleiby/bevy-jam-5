@@ -5,6 +5,7 @@ use bevy_kira_audio::prelude::*;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use std::collections::HashSet;
 use std::f64::consts::PI;
 use std::f64::EPSILON;
 
@@ -25,6 +26,20 @@ pub fn bodies_plugin(app: &mut App) {
         .add_systems(Update, handle_timestep_input)
         .add_systems(Update, update_timestep)
         .add_systems(Update, move_shapes);
+}
+
+#[derive(Component)]
+struct Puzzle {
+
+    // TDO: help
+    distances:
+    solution_timestep: f64,
+    solution_distances: Vec<f64>,
+
+    vec![f64::sqrt(3), 2., 3.]
+
+
+
 }
 
 // TODO: why isn't deref mut working to avoid need for .0 ?
@@ -55,6 +70,7 @@ fn setup_shapes(
     // let bodies = bodies_from_periods(vec![0., 1., f64::sqrt(3.), 2., 3., 4., 5., 6., 7., 8.]);
     // let bodies = bodies_from_periods(vec![f64::sqrt(3.), 2., f64::sqrt(6.), 3., f64::sqrt(11.)]);
     let bodies = bodies_from_periods(vec![2., 3.]);
+    // let bodies = bodies_from_periods(vec![0.25, 2., 3.]);
 
     // draw orbits
     let orbit_color = Color::srgba(0.9, 0.9, 0.9, 0.5);
@@ -81,6 +97,17 @@ fn setup_shapes(
         },));
     }
 
+    // draw line of "syzygy"
+    let middle_line_color = Color::srgba(0.9, 0.9, 0.9, 0.2);
+    let middle_line = Mesh2dHandle(meshes.add(Rectangle::new(1280.0, 2.0)));
+    commands.spawn((MaterialMesh2dBundle {
+        mesh: middle_line,
+        material: materials.add(middle_line_color),
+        transform: Transform::from_translation(Vec3::ZERO),
+        ..default()
+    },));
+
+    // draw bodies
     for body in bodies {
         let radius = (body.mass * 5.) as f32;
         let shape = Mesh2dHandle(meshes.add(Circle { radius }));
@@ -137,11 +164,18 @@ fn change_orbits(input: Res<ButtonInput<KeyCode>>, mut query: Query<(&mut Body, 
 
 fn move_shapes(
     // time: Res<Time>,
-    mut query: Query<(&mut Body, &mut Transform)>,
+    mut query: Query<(&Body, &mut Transform)>,
     timestep: Res<Timestep>,
+    mut query2: Query<&mut IsPlaying>,
     asset_server: Res<AssetServer>,
     audio: Res<Audio>,
 ) {
+    let mut is_playing = query2.get_single_mut().unwrap();
+    if !is_playing.0 {
+        return;
+    }
+
+    let mut just_passed_go = vec![];
     for (body, mut transform) in &mut query {
         if body.distance_from_central_body < EPSILON {
             transform.translation = Vec3::ZERO;
@@ -178,6 +212,7 @@ fn move_shapes(
         if timestep_prime < timestep_prime_prev {
             // play SFX
             audio.play(asset_server.load("plop.ogg"));
+            just_passed_go.push(body);
         }
 
         let angle_radians: f64 = 2. * PI * cycle_position;
@@ -188,6 +223,69 @@ fn move_shapes(
             y as f32 * DISTANCE_UI_SCALE,
             0.,
         );
+    }
+
+    let did_syzygy = check_for_syzygy(bodies, timestep.0);
+    if did_syzygy {
+        is_playing.0 = false;
+        println!("syzygy!");
+    }
+}
+
+fn approx_equal(a: f64, b: f64) -> bool {
+    f64::abs(a - b) < EPSILON
+}
+
+fn check_for_syzygy(bodies: Vec<&Body>, ts: f64) -> bool {
+    let expected = vec![2.0, 3.0];
+
+    for e in expected {
+        let mut found = false;
+        for b in &bodies {
+            // if b.distance_from_central_body == e {
+            if approx_equal(b.distance_from_central_body, e) {
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            return false;
+        }
+    }
+
+    return true;
+
+    // expected
+    //     .iter()
+    //     .map(|e| {
+    //         bodies
+    //             .iter()
+    //             .any(|b| approx_equal(b.distance_from_central_body, *e))
+    //     })
+    //     .all(|x| x)
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy::color::palettes::css::PURPLE;
+
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_syzygy() {
+        let b1 = Body::new(2., 1., PURPLE.into());
+        let b2 = Body::new(3., 1., PURPLE.into());
+        let bodies = vec![&b1, &b2];
+        assert_eq!(check_for_syzygy(bodies), true);
+    }
+
+    #[test]
+    fn test_syzygy2() {
+        let b1 = Body::new(2., 1., PURPLE.into());
+        let bodies = vec![&b1];
+        assert_eq!(check_for_syzygy(bodies), false);
     }
 }
 

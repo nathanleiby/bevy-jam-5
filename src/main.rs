@@ -51,8 +51,9 @@ fn main() {
 }
 
 // -- audio --
+// TODO: support toggling on and off with a button
 fn start_background_audio(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    audio.play(asset_server.load("loop.ogg")).looped();
+    // audio.play(asset_server.load("loop.ogg")).looped();
 }
 
 // -- game --
